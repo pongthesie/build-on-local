@@ -65,16 +65,16 @@ jobs:
           set -eux
           docker run --rm ${{ steps.vars.outputs.image }}:latest \
             python - <<'PY'
-import importlib, traceback
-mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr"]
-for m in mods:
-    print("== Test import:", m)
-    try:
-        mod = importlib.import_module(m)
-        print("OK:", m, getattr(mod,"__version__","n/a"))
-    except Exception:
-        print("FAIL:", m); traceback.print_exc(); raise
-PY
+            import importlib, traceback
+            mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr"]
+            for m in mods:
+            print("== Test import:", m)
+            try:
+            mod = importlib.import_module(m)
+            print("OK:", m, getattr(mod,"__version__","n/a"))
+            except Exception:
+            print("FAIL:", m); traceback.print_exc(); raise
+            PY
 
       - name: Show pushed image info
         run: echo "Image pushed to ${{ steps.vars.outputs.image }}"
