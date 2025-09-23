@@ -1,35 +1,37 @@
-name: Build & Push OCR App
+name: Build & Push OCR App (Self-Hosted)
 
 on:
   push:
     branches: [ "main", "dev" ]
   workflow_dispatch:
 
-# ต้องมี เพื่อให้ GITHUB_TOKEN push เข้า GHCR ได้
 permissions:
   contents: read
   packages: write
 
 jobs:
   docker:
-    # ใช้ได้กับทุก self-hosted runner (มีแค่ label self-hosted ก็พอ)
     runs-on: self-hosted
 
     steps:
-      - name: Checkout
+      # 1️⃣ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 3️⃣ Login GHCR using PAT
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
-      - name: Build and push
+      # 4️⃣ Build & Push Docker image (multi-platform optional)
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -38,3 +40,8 @@ jobs:
           tags: |
             ghcr.io/pongthesie/ocr-app:latest
             ghcr.io/pongthesie/ocr-app:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64  # comment ถ้าไม่ต้องการ multi-platform
+
+      # 5️⃣ Optional: verify image
+      - name: Verify Docker Image
+        run: docker pull ghcr.io/pongthesie/ocr-app:latest
