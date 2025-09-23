@@ -37,5 +37,23 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/ocr-app:latest
             ghcr.io/${{ github.repository_owner }}/ocr-app:${{ github.sha }}
 
+      - name: Smoke test imports (show which module fails)
+        run: |
+          set -eux
+          docker run --rm ghcr.io/${{ github.repository_owner }}/ocr-app:latest \
+            python - <<'PY'
+import importlib, traceback
+mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr","tensorflow"]
+for m in mods:
+    print("== Test import:", m)
+    try:
+        mod = importlib.import_module(m)
+        v = getattr(mod, "__version__", "n/a")
+        print("OK:", m, v)
+    except Exception:
+        print("FAIL:", m)
+        traceback.print_exc()
+PY
+
       - name: Show pushed image info
         run: echo "Image pushed to ghcr.io/${{ github.repository_owner }}/ocr-app"
