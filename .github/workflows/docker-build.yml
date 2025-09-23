@@ -1,80 +1,66 @@
-name: Build OCR Docker Image
+name: build-and-push-ocr-app
 
 on:
   push:
     branches: [ "main", "dev" ]
-  pull_request:
-    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+# ให้สิทธิ์เขียน packages สำหรับ GHCR
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build:
-    runs-on: self-hosted   # ใช้ self-hosted runner
-
-    permissions:
-      contents: read
-      packages: write   # ✅ ต้องมีเพื่อ push GHCR
+  docker:
+    runs-on: self-hosted  # ถ้า runner ของคุณมี label แค่ self-hosted ก็พอ
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Pre-flight checks (disk/network)
+      - name: Set IMAGE name (lowercase owner)
         run: |
-          echo "== Disk usage =="
-          df -h
-          echo "== Docker disk =="
-          docker system df || true
-          echo "== DNS check =="
-          getent hosts pypi.org || true
-          getent hosts files.pythonhosted.org || true
+          echo "OWNER_LC=${OWNER,,}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${OWNER_LC}/ocr-app" >> $GITHUB_ENV
+        env:
+          OWNER: ${{ github.repository_owner }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: Login to GHCR (GITHUB_TOKEN)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set image name (lowercase)
-        id: vars
-        run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER}/ocr-app"
-          echo "image=${IMAGE,,}" >> $GITHUB_OUTPUT
-
-      - name: Build and push Docker image
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+      - name: Build & Push
         uses: docker/build-push-action@v6
-        env:
-          BUILDKIT_PROGRESS: plain
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          build-args: |
-            WITH_TF=0     # ✅ เริ่มจากไม่ใส่ tensorflow เพื่อลดปัญหา ถ้าต้องใช้ค่อยสลับเป็น 1
           tags: |
-            ${{ steps.vars.outputs.image }}:latest
-            ${{ steps.vars.outputs.image }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Smoke test imports
         run: |
           set -eux
-          docker run --rm ${{ steps.vars.outputs.image }}:latest \
-            python - <<'PY'
-            import importlib, traceback
-            mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr"]
-            for m in mods:
-            print("== Test import:", m)
-            try:
-            mod = importlib.import_module(m)
-            print("OK:", m, getattr(mod,"__version__","n/a"))
-            except Exception:
-            print("FAIL:", m); traceback.print_exc(); raise
-            PY
+          docker run --rm ${{ env.IMAGE }}:latest python - <<'PY'
+          import importlib, traceback
+          mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr"]
+          for m in mods:
+              print("== Test import:", m)
+              try:
+                  mod = importlib.import_module(m)
+                  print("OK:", m, getattr(mod,"__version__","n/a"))
+              except Exception:
+                  print("FAIL:", m); traceback.print_exc(); raise
+          PY
 
       - name: Show pushed image info
-        run: echo "Image pushed to ${{ steps.vars.outputs.image }}"
+        run: echo "Image pushed to ${{ env.IMAGE }}"
