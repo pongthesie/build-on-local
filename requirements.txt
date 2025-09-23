@@ -1,0 +1,7 @@
+flask
+paddleocr
+paddlepaddle
+fastapi
+uvicorn[standard]
+sqlalchemy
+tensorflow-cpu
