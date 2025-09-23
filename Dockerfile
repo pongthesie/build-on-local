@@ -8,32 +8,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /opt/app
 
-# ไลบรารีระบบที่มักจำเป็นสำหรับ opencv/paddle
+# system libs ที่จำเป็น
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libglib2.0-0 libsm6 libxext6 libxrender1 libgl1 ca-certificates \
-   && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# ใส่ wheelhouse + requirements
-COPY wheels_offline_py312/ /wheels/
+# upgrade pip tools
+RUN python -m pip install -U pip setuptools wheel
+
+# ติดตั้งจาก requirements.txt (ดึงจาก PyPI)
 COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --only-binary=:all: --prefer-binary -r /tmp/requirements.txt
 
-# ติดตั้งจาก wheelhouse แบบไม่แตะ PyPI
-RUN python -m pip install -U pip setuptools wheel \
- && python -m pip install --no-index --find-links=/wheels -r /tmp/requirements.txt
-
-# คัดลอกซอร์ส (ปรับตามโปรเจ็กต์จริง)
+# คัดลอกโค้ดเข้า image
 COPY . /opt/app
 
-# ตรวจสอบว่าลงครบ (ดีบัก—เอาออกได้ภายหลัง)
+# ตรวจสอบ import
 RUN python - <<'PY'
 import importlib, sys
-mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr"]
+mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr","tensorflow"]
 for m in mods:
-    try:
-        importlib.import_module(m); print("OK:", m)
-    except Exception as e:
-        print("FAIL:", m, e); sys.exit(1)
-print("All good.")
+    try: importlib.import_module(m); print("OK:", m)
+    except Exception as e: print("FAIL:", m, e); sys.exit(1)
 PY
 
 EXPOSE 8000
