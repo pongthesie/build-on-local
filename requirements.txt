@@ -1,7 +1,7 @@
-flask
-paddleocr
-paddlepaddle
-fastapi
-uvicorn[standard]
-sqlalchemy
-tensorflow-cpu
+flask==3.0.3
+fastapi==0.114.2
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+tensorflow-cpu==2.16.1
+paddleocr==3.2.0
+paddlepaddle==3.2.0
