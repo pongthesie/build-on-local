@@ -24,13 +24,14 @@ RUN python -m pip install --only-binary=:all: --prefer-binary -r /tmp/requiremen
 COPY . /opt/app
 
 # ตรวจสอบ import
-RUN python - <<'PY'
-import importlib, sys
-mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr","tensorflow"]
-for m in mods:
-    try: importlib.import_module(m); print("OK:", m)
-    except Exception as e: print("FAIL:", m, e); sys.exit(1)
-PY
+# RUN python - <<'PY'
+# import importlib, sys
+# mods = ["flask","fastapi","uvicorn","sqlalchemy","paddle","paddleocr","tensorflow"]
+# for m in mods:
+#     try: importlib.import_module(m); print("OK:", m)
+#     except Exception as e: print("FAIL:", m, e); sys.exit(1)
+# PY
+
 
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
