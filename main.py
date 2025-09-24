@@ -10,6 +10,7 @@ Example app ที่เรียกใช้ library ตาม requirements.txt
 
 from flask import Flask
 from fastapi import FastAPI
+from fastapi.middleware.wsgi import WSGIMiddleware
 import uvicorn
 from sqlalchemy import create_engine, text
 
@@ -19,19 +20,21 @@ import tensorflow as tf
 
 # --- Flask app ---
 flask_app = Flask(__name__)
-
 @flask_app.route("/")
 def hello_flask():
     return "Hello from Flask!"
 
-
 # --- FastAPI app ---
 fastapi_app = FastAPI()
-
 @fastapi_app.get("/hello")
 def hello_fastapi():
     return {"msg": "Hello from FastAPI!"}
 
+# ✅ mount Flask เข้า FastAPI ตอน import (uvicorn จะเห็นเลย)
+fastapi_app.mount("/flask", WSGIMiddleware(flask_app))
+
+# ✅ export เป็นตัวแปร 'app' ให้ uvicorn ใช้
+app = fastapi_app
 
 # --- SQLAlchemy Demo ---
 def test_sqlalchemy():
@@ -42,19 +45,15 @@ def test_sqlalchemy():
         result = conn.execute(text("SELECT * FROM demo")).fetchall()
         print("SQLAlchemy rows:", result)
 
-
 # --- PaddleOCR Demo ---
 def test_paddle():
     print("Paddle version:", paddle.__version__)
-    # init OCR (เฉย ๆ ไม่ต้องโหลด model)
     ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=False)
     print("PaddleOCR ready:", ocr is not None)
-
 
 # --- TensorFlow Demo ---
 def test_tf():
     print("TensorFlow version:", tf.__version__)
-
 
 if __name__ == "__main__":
     print("=== Run library checks ===")
@@ -62,9 +61,4 @@ if __name__ == "__main__":
     test_paddle()
     test_tf()
     print("=== Starting servers ===")
-
-    # Run Flask + FastAPI ด้วย uvicorn (mount ร่วมกัน)
-    from fastapi.middleware.wsgi import WSGIMiddleware
-    fastapi_app.mount("/flask", WSGIMiddleware(flask_app))
-
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
