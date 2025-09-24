@@ -11,20 +11,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MKL_NUM_THREADS=1 \
     NUMEXPR_NUM_THREADS=1 \
     FLAGS_use_mkldnn=false \
+    ONEDNN_MAX_CPU_ISA=SSE41 \
     DNNL_MAX_CPU_ISA=SSE41
 
 WORKDIR /opt/app
 
-# ติดตั้ง system dependencies
+# ติดตั้ง system dependencies (เพิ่ม libgomp1/libgfortran5/libstdc++6 สำหรับ Paddle/NumPy)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl dnsutils \
+      ca-certificates curl \
       libglib2.0-0 libsm6 libxext6 libxrender1 libgl1 \
+      libgomp1 libgfortran5 libstdc++6 \
  && rm -rf /var/lib/apt/lists/*
 
-# อัปเดต pip
+# อัปเดต pip tools
 RUN python -m pip install -U pip setuptools wheel
 
-# toggle เพื่อตัด TensorFlow ออก (ลด size)
+# toggle เพื่อตัด TensorFlow ออก (ลด size ได้)
 ARG WITH_TF=1
 
 # requirements
