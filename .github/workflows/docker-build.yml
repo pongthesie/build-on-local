@@ -1,4 +1,4 @@
-name: Build OCR App Locally
+name: Build & Run OCR (Local, Self-Hosted)
 
 on:
   push:
@@ -6,28 +6,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  docker:
+  build-run:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v3
 
-      # Buildx: โหลดเข้า local daemon ทันที (ห้ามใช้ร่วมกับ push: true)
-      - name: Build (load to local Docker)
+      - name: "Build (no-cache) and load to local daemon"
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
+          pull: true
+          no-cache: true
           push: false
-          load: true             # ✅ สำคัญ
-          tags: ocr-app:latest   # image จะโผล่ใน `docker images`
+          load: true           # โหลดเข้า local daemon ของ runner
+          tags: ocr-app:latest
 
-      # ตรวจสอบแบบไม่พึ่ง grep
-      - name: Verify local image
+      - name: "Preflight: check Paddle shared libs"
         run: |
-          docker image inspect ocr-app:latest >/dev/null
-          docker images ocr-app:latest
+          docker run --rm --entrypoint bash ocr-app:latest -lc '
+            set -e
+            so=/usr/local/lib/python3.12/site-packages/paddle/base/libpaddle.so
+            echo "ldd $so"
+            if ldd "$so" | grep -q "not found"; then
+              ldd "$so" | grep "not found" || true
+              echo "ERROR: missing shared libs for Paddle"; exit 1
+            else
+              echo "OK: all deps found"
+            fi
+          '
+
+      - name: "Stop old container (if any)"
+        run: docker rm -f ocr || true
+
+      - name: "Run new container"
+        run: |
+          docker run -d --name ocr --restart unless-stopped \
+            -e FLAGS_use_mkldnn=false \
+            -e ONEDNN_MAX_CPU_ISA=SSE41 -e DNNL_MAX_CPU_ISA=SSE41 \
+            -e OMP_NUM_THREADS=1 -e OPENBLAS_NUM_THREADS=1 -e MKL_NUM_THREADS=1 -e NUMEXPR_NUM_THREADS=1 \
+            -p 1111:8000 \
+            ocr-app:latest
+
+      - name: "Show status & last logs"
+        run: |
+          sleep 3
+          docker ps --filter "name=ocr"
+          echo "---- last 80 lines ----"
+          docker logs --tail=80 ocr || true
